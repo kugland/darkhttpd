@@ -90,6 +90,30 @@ class TestTrustedIp(TestHelper):
         self.assertTrue(line.startswith(ipv6 + " "), 
             f"Expected log to start with IPv6 {ipv6}. Log line: {line}")
 
+    def test_xff_smuggled_in_referer(self):
+        """
+        A client without a real X-Forwarded-For header must not be able to
+        spoof its logged IP by smuggling the field name inside another
+        header's value (here: Referer). The log must show the real client
+        IP, not the smuggled one.
+        """
+        spoof_ip = "99.99.99.99"
+        time_marker = random_str()
+        url = f"/xff_smuggle-{time_marker}"
+
+        # No X-Forwarded-For header is sent; the substring lives inside
+        # the Referer value. Pre-fix parse_field used strcasestr() over
+        # the whole request and would match this.
+        self.get(url, req_hdrs={"Referer": f"X-Forwarded-For: {spoof_ip}"})
+
+        line = self._wait_and_check_log(url)
+        self.assertFalse(line.startswith(spoof_ip + " "),
+            f"Spoofed IP {spoof_ip} smuggled via Referer was logged as the "
+            f"client address. Log line: {line}")
+        self.assertTrue(line.startswith("127.0.0.1 "),
+            f"Expected log to start with real client IP 127.0.0.1. "
+            f"Log line: {line}")
+
     def test_xff_ipv6_list(self):
         """
         Test a list containing IPv6 and IPv4.
