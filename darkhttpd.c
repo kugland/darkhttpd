@@ -2006,27 +2006,28 @@ static ssize_t make_sorted_dirlist(const char *path, struct dlent ***output) {
     struct dirent *ent;
     size_t entries = 0;
     size_t pool = 128;
-    char *currname;
     struct dlent **list = NULL;
 
     dir = opendir(path);
     if (dir == NULL)
         return -1;
 
-    currname = xmalloc(strlen(path) + MAXNAMLEN + 1);
     list = xmalloc(sizeof(struct dlent*) * pool);
 
     /* construct list */
     while ((ent = readdir(dir)) != NULL) {
         struct stat s;
+        char *currname;
+        int stat_ret;
 
         if (strcmp(ent->d_name, ".") == 0 || strcmp(ent->d_name, "..") == 0)
             continue; /* skip "." and ".." */
         if (want_hide_dotfiles && ent->d_name[0] == '.')
             continue;
-        assert(strlen(ent->d_name) <= MAXNAMLEN);
-        sprintf(currname, "%s%s", path, ent->d_name);
-        if (stat(currname, &s) == -1)
+        xasprintf(&currname, "%s%s", path, ent->d_name);
+        stat_ret = stat(currname, &s);
+        free(currname);
+        if (stat_ret == -1)
             continue; /* skip un-stat-able files */
         if (entries == pool) {
             pool *= 2;
@@ -2040,7 +2041,6 @@ static ssize_t make_sorted_dirlist(const char *path, struct dlent ***output) {
         entries++;
     }
     closedir(dir);
-    free(currname);
     qsort(list, entries, sizeof(struct dlent*), dlent_cmp);
     *output = list;
     return (ssize_t)entries;
