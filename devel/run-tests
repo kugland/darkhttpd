@@ -224,6 +224,15 @@ if ./test_normalize_path | grep -E '^FAIL:'; then
   exit 1
 fi
 
+echo "===> test_dirlist_overflow"
+$CC -g -O2 -fsanitize=undefined \
+  test_dirlist_overflow.c -Wl,--wrap=malloc,--wrap=realloc,--wrap=free \
+  -o test_dirlist_overflow || exit 1
+if ./test_dirlist_overflow | grep -E '^FAIL:'; then
+  echo test_dirlist_overflow failed >&2
+  exit 1
+fi
+
 # Check that the code builds with various defines.
 echo "===> building without -DDEBUG"
 $CC -O2 -Wall ../darkhttpd.c || exit 1
