@@ -114,6 +114,34 @@ class TestTrustedIp(TestHelper):
             f"Expected log to start with real client IP 127.0.0.1. "
             f"Log line: {line}")
 
+    def test_xff_real_header_not_masked_by_prior_value_match(self):
+        """
+        When the field name appears inside a prior header's value *and* a real
+        X-Forwarded-For header is also present, the real header must still be
+        found. A single-hit approach (find the first strcasestr match, check
+        pos[-1] != '\\n', stop) would reject that hit and return NULL, losing
+        the real header entirely.
+        """
+        real_ip = "10.20.30.40"
+        spoof_ip = "99.99.99.99"
+        time_marker = random_str()
+        url = f"/xff_masked-{time_marker}"
+
+        # Referer value contains "X-Forwarded-For: <spoof_ip>" as a substring.
+        # The real X-Forwarded-For header comes after.
+        self.get(url, req_hdrs={
+            "Referer": f"http://evil.example/X-Forwarded-For: {spoof_ip}",
+            "X-Forwarded-For": real_ip,
+        })
+
+        line = self._wait_and_check_log(url)
+        self.assertTrue(line.startswith(real_ip + " "),
+            f"Expected log to start with real XFF IP {real_ip}. "
+            f"Log line: {line}")
+        self.assertFalse(line.startswith(spoof_ip + " "),
+            f"Spoofed IP {spoof_ip} (embedded in Referer value) was logged. "
+            f"Log line: {line}")
+
     def test_xff_ipv6_list(self):
         """
         Test a list containing IPv6 and IPv4.
