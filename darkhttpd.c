@@ -1778,28 +1778,18 @@ static void redirect(struct connection *conn, const char *format, ...) {
  */
 static char *parse_field(const struct connection *conn, const char *field) {
     size_t bound1, bound2;
-    const size_t field_len = strlen(field);
-    char *pos = NULL;
+    char *search, *pos;
 
-    /* Walk header lines: only match [field] at the start of a line so that
-     * substrings inside the request-target or another header's value cannot
-     * be mistaken for a real header. The first line is the request line and
-     * will not match any of the header names we look for. */
-    for (size_t i = 0; i + field_len <= conn->request_length; ) {
-        if (strncasecmp(conn->request + i, field, field_len) == 0) {
-            pos = conn->request + i;
-            break;
-        }
-        /* Advance to the byte after the next '\n', or stop if none. */
-        const char *nl = memchr(conn->request + i, '\n',
-                                conn->request_length - i);
-        if (nl == NULL)
-            break;
-        i = (size_t)(nl - conn->request) + 1;
-    }
+    /* Prepend '\n' so strcasestr only matches [field] at the start of a line,
+     * preventing substrings inside the request-target or another header's
+     * value from being mistaken for a real header. */
+    xasprintf(&search, "\n%s", field);
+    pos = strcasestr(conn->request, search);
+    free(search);
     if (pos == NULL)
         return NULL;
-    bound1 = (size_t)(pos - conn->request) + field_len;
+    pos++;  /* skip the leading '\n' */
+    bound1 = (size_t)(pos - conn->request) + strlen(field);
 
     /* find end */
     for (bound2 = bound1;
