@@ -1949,6 +1949,8 @@ static int parse_request(struct connection *conn) {
             bound2++)
                 ;
 
+        if (conn->request[bound2] != '\r' && conn->request[bound2] != '\n')
+            return 0; /* extra tokens after HTTP version */
         proto = split_string(conn->request, bound1, bound2);
         if (strcasecmp(proto, "HTTP/1.1") == 0)
             conn->conn_close = 0;
@@ -1957,8 +1959,6 @@ static int parse_request(struct connection *conn) {
             return 0; /* unknown version or literal space in request-target */
         }
         free(proto);
-        if (conn->request[bound2] != '\r' && conn->request[bound2] != '\n')
-            return 0; /* extra tokens after HTTP version */
     }
 
     /* parse connection field */
